@@ -1,5 +1,4 @@
 # ChefPay-_app
-# CDMA_TG_APP
 <!-- initial setup -->
 
 step 1:
