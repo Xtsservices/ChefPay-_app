@@ -78,10 +78,7 @@ const menuItems = {
     { id: 'papdi-chaat', name: 'Papdi Chaat', price: 65, img: 'https://source.unsplash.com/200x200/?papdi-chaat' },
     { id: 'sev-puri', name: 'Sev Puri', price: 60, img: 'https://source.unsplash.com/200x200/?sev-puri' },
   ],
-  
 };
-
-
 
 import { useNavigation } from '@react-navigation/native';
 import React, { useState, useEffect } from 'react';
@@ -95,6 +92,7 @@ import {
   Dimensions,
   ActivityIndicator,
   ScrollView,
+  FlatList,
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -108,8 +106,6 @@ const beverages = require('../../assets/menu/beverages.png');
 const bread = require('../../assets/menu/breads.png');
 const snacks = require('../../assets/menu/fastfoods.png');
 
-// (menuItems object stays exactly same — omitted here for brevity)
-
 const MenuScreen = () => {
   const navigation = useNavigation();
   const [selectedMenu, setSelectedMenu] = useState('Tiffins');
@@ -117,12 +113,66 @@ const MenuScreen = () => {
   const [loading, setLoading] = useState(false);
   const [cart, setCart] = useState({});
 
+  // Calculate responsive dimensions based on screen width
+  const getResponsiveDimensions = () => {
+    let sidebarWidth, itemContainerWidth, numColumns, minCardWidth, maxCardWidth;
+    
+    if (width < 480) {
+      // Small phones
+      sidebarWidth = width * 0.25;
+      itemContainerWidth = width * 0.75;
+      numColumns = 2;
+      minCardWidth = 140;
+      maxCardWidth = 170;
+    } else if (width < 768) {
+      // Large phones / small tablets
+      sidebarWidth = width * 0.28;
+      itemContainerWidth = width * 0.72;
+      numColumns = 3;
+      minCardWidth = 150;
+      maxCardWidth = 180;
+    } else if (width < 1024) {
+      // Tablets
+      sidebarWidth = width * 0.25;
+      itemContainerWidth = width * 0.75;
+      numColumns = 4;
+      minCardWidth = 160;
+      maxCardWidth = 190;
+    } else {
+      // Large tablets / desktops
+      sidebarWidth = width * 0.22;
+      itemContainerWidth = width * 0.78;
+      numColumns = 5;
+      minCardWidth = 170;
+      maxCardWidth = 200;
+    }
+    
+    return { sidebarWidth, itemContainerWidth, numColumns, minCardWidth, maxCardWidth };
+  };
+
+  const { 
+    sidebarWidth, 
+    itemContainerWidth, 
+    numColumns, 
+    minCardWidth, 
+    maxCardWidth 
+  } = getResponsiveDimensions();
+  
+  const cardPadding = 10;
+  const cardGap = width < 480 ? 8 : width < 768 ? 10 : 12; // Responsive gap
+  
+  // Calculate actual card width with better distribution
+  const availableWidth = itemContainerWidth - (cardPadding * 2);
+  const totalGapWidth = (numColumns - 1) * cardGap;
+  const calculatedCardWidth = (availableWidth - totalGapWidth) / numColumns;
+  const cardWidth = Math.min(maxCardWidth, Math.max(minCardWidth, calculatedCardWidth));
+
   useEffect(() => {
     setLoading(true);
     setTimeout(() => {
       setItems(menuItems[selectedMenu] || []);
       setLoading(false);
-    }, 1000);
+    }, 300); // Reduced loading time for better UX
   }, [selectedMenu]);
 
   const handleQuantityChange = (id, change) => {
@@ -136,15 +186,84 @@ const MenuScreen = () => {
       return { ...prev, [id]: newQty };
     });
   };
+
   const totalItems = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+
+  const getMenuImage = (menu) => {
+    const imageMap = {
+      'Tiffins': tiffens,
+      'Starters': starters,
+      'Desserts': desserts,
+      'Main Course': mainCourse,
+      'Beverages': beverages,
+      'Snacks': snacks,
+    };
+    return imageMap[menu] || bread;
+  };
+
+  const renderItem = ({ item, index }) => {
+    const quantity = cart[item.id] || 0;
+    const imageUri = typeof item.img === 'string' ? item.img : item.img.toString();
+    
+    // Increased card height based on screen size to prevent overlapping
+    const cardHeight = width < 480 ? 250 : width < 768 ? 270 : 290;
+    const imageHeight = width < 480 ? 110 : width < 768 ? 120 : 130;
+    
+    return (
+      <View style={[styles.itemCard, { 
+        width: cardWidth,
+        height: cardHeight,
+        marginRight: (index + 1) % numColumns === 0 ? 0 : cardGap,
+        marginLeft: index % numColumns === 0 ? 0 : 0,
+      }]}>
+        <Image 
+          source={{ uri: imageUri }} 
+          style={[styles.itemImage, { height: imageHeight }]} 
+          onError={(e) => console.log('Image load error:', e.nativeEvent.error)} 
+        />
+        <View style={styles.itemContent}>
+          <View style={styles.itemInfo}>
+            <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+            <Text style={styles.itemPrice}>₹{item.price}</Text>
+          </View>
+          <View style={styles.buttonContainer}>
+            {quantity === 0 ? (
+              <TouchableOpacity 
+                style={styles.addButton} 
+                onPress={() => handleQuantityChange(item.id, 1)}
+              >
+                <Text style={styles.addText}>Add</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.quantityContainer}>
+                <TouchableOpacity 
+                  style={styles.quantityButton} 
+                  onPress={() => handleQuantityChange(item.id, -1)}
+                >
+                  <Text style={styles.quantityText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.quantity}>{quantity}</Text>
+                <TouchableOpacity 
+                  style={styles.quantityButton} 
+                  onPress={() => handleQuantityChange(item.id, 1)}
+                >
+                  <Text style={styles.quantityText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.mainContainer}>
-          {/* Sidebar (30%) */}
-          <View style={styles.sidebar}>
-            <ScrollView style={{ flex: 1 }}>
+          {/* Sidebar */}
+          <View style={[styles.sidebar, { width: sidebarWidth }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
               {Object.keys(menuItems).map(menu => (
                 <TouchableOpacity
                   key={menu}
@@ -154,46 +273,42 @@ const MenuScreen = () => {
                   ]}
                   onPress={() => setSelectedMenu(menu)}
                 >
-                  <Image source={menu === 'Tiffins' ? tiffens : menu === 'Starters' ? starters : menu === 'Desserts' ? desserts : menu === 'Main Course' ? mainCourse : menu === 'Beverages' ? beverages : menu === 'Snacks' ? snacks : bread} style={styles.menuImage} />
-                  <Text style={styles.menuText}>{menu}</Text>
+                  <Image 
+                    source={getMenuImage(menu)} 
+                    style={styles.menuImage} 
+                  />
+                  <Text style={styles.menuText} numberOfLines={2}>{menu}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
 
-          {/* Item Display (70%) */}
-          <View style={styles.itemContainer}>
+          {/* Item Display */}
+          <View style={[styles.itemContainer, { width: itemContainerWidth }]}>
             {loading ? (
-              <ActivityIndicator size="large" color="#0671ca" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0671ca" />
+                <Text style={styles.loadingText}>Loading {selectedMenu}...</Text>
+              </View>
             ) : (
-              <ScrollView style={{ flex: 1 }}>
-                {items.map(item => {
-                  const quantity = cart[item.id] || 0;
-                  const imageUri = typeof item.img === 'string' ? item.img : item.img.toString();
-                  return (
-                    <View key={item.id} style={styles.itemCard}>
-                      <Image source={{ uri: imageUri }} style={styles.itemImage} onError={(e) => console.log('Image load error:', e.nativeEvent.error)} />
-                      <Text style={styles.itemName}>{item.name}</Text>
-                      <Text style={styles.itemPrice}>₹{item.price}</Text>
-                      {quantity === 0 ? (
-                        <TouchableOpacity style={styles.addButton} onPress={() => handleQuantityChange(item.id, 1)}>
-                          <Text style={styles.addText}>Add</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <View style={styles.quantityContainer}>
-                          <TouchableOpacity style={styles.quantityButton} onPress={() => handleQuantityChange(item.id, -1)}>
-                            <Text style={styles.quantityText}>-</Text>
-                          </TouchableOpacity>
-                          <Text style={styles.quantity}>{quantity}</Text>
-                          <TouchableOpacity style={styles.quantityButton} onPress={() => handleQuantityChange(item.id, 1)}>
-                            <Text style={styles.quantityText}>+</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </ScrollView>
+              <FlatList
+                data={items}
+                renderItem={renderItem}
+                numColumns={numColumns}
+                key={`${numColumns}-${selectedMenu}-${width}`} // Force re-render when screen rotates
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.flatListContent, { paddingHorizontal: cardPadding }]}
+                ItemSeparatorComponent={() => <View style={{ height: cardGap }} />}
+                ListHeaderComponent={() => (
+                  <Text style={[styles.categoryTitle, { 
+                    fontSize: width < 480 ? 20 : width < 768 ? 22 : 24 
+                  }]}>{selectedMenu}</Text>
+                )}
+                columnWrapperStyle={numColumns > 1 ? { 
+                  justifyContent: 'flex-start',
+                  paddingHorizontal: 0,
+                } : null}
+              />
             )}
           </View>
         </View>
@@ -201,9 +316,15 @@ const MenuScreen = () => {
         {/* Floating Cart Footer */}
         {totalItems > 0 && (
           <View style={styles.cartFooter}>
-            <Text style={styles.cartText}>{totalItems} Items</Text>
-            <TouchableOpacity style={styles.viewCartButton} onPress={() => navigation.navigate('CartScreen', { cart, setCart, menuItems })}>
-              <Text style={styles.viewCartText}>View Cart</Text>
+            <View style={styles.cartInfo}>
+              <Text style={styles.cartText}>{totalItems} Items</Text>
+              <Text style={styles.cartSubText}>in your cart</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.viewCartButton} 
+              onPress={() => navigation.navigate('CartScreen', { cart, setCart, menuItems })}
+            >
+              <Text style={styles.viewCartText}>View Cart →</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -211,6 +332,9 @@ const MenuScreen = () => {
     </SafeAreaView>
   );
 };
+
+// Move cardGap here so it can be used in StyleSheet
+const cardGap = width < 480 ? 8 : width < 768 ? 10 : 12;
 
 const styles = StyleSheet.create({
   container: {
@@ -225,133 +349,203 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flex: 1,
   },
-  // NOW FLEX BASED WIDTHS
   sidebar: {
-    flex: 3, // ~30%
     backgroundColor: '#1E2A44',
+    borderRightWidth: 1,
+    borderRightColor: '#2D4062',
   },
   itemContainer: {
-    flex: 7, // ~70%
-    padding: 10,
     backgroundColor: '#F9FAFB',
   },
-
   menuItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingVertical: width < 480 ? 8 : 12,
+    paddingHorizontal: width < 480 ? 6 : 8,
     borderBottomWidth: 1,
     borderBottomColor: '#2D4062',
-    flexDirection: 'column',
     alignItems: 'center',
+    minHeight: width < 480 ? 70 : 80,
   },
   selectedMenuItem: {
     backgroundColor: '#2D4062',
+    borderLeftWidth: 3,
+    borderLeftColor: '#0671ca',
   },
   menuImage: {
-    width: 40,
-    height: 40,
+    width: width < 480 ? 28 : width < 768 ? 32 : 35,
+    height: width < 480 ? 28 : width < 768 ? 32 : 35,
     resizeMode: 'contain',
-    marginBottom: 5,
+    marginBottom: 6,
   },
   menuText: {
-    fontSize: 14,
+    fontSize: width < 480 ? 10 : width < 768 ? 11 : 12,
     fontWeight: '600',
     color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: width < 480 ? 12 : 14,
+  },
+  flatListContent: {
+    padding: 10,
+    paddingBottom: 20,
+  },
+  categoryTitle: {
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   itemCard: {
-    width: Math.min(160, width / Math.max(2, Math.floor(width / 160))),
-    height: 250,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 10,
-    alignItems: 'center',
+    borderRadius: width < 480 ? 10 : 12,
+    marginBottom: cardGap,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
   },
   itemImage: {
     width: '100%',
-    height: 125,
     resizeMode: 'cover',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: width < 480 ? 10 : 12,
+    borderTopRightRadius: width < 480 ? 10 : 12,
+  },
+  itemContent: {
+    flex: 1,
+    padding: width < 480 ? 10 : width < 768 ? 12 : 14,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itemInfo: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
   itemName: {
-    fontSize: 14,
+    fontSize: width < 480 ? 12 : width < 768 ? 13 : 14,
     fontWeight: '600',
     color: '#1F2937',
     textAlign: 'center',
-    marginVertical: 3,
+    marginBottom: 6,
+    lineHeight: width < 480 ? 16 : 18,
+    minHeight: width < 480 ? 32 : 36, // Ensure consistent height for name area
   },
   itemPrice: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 3,
+    fontSize: width < 480 ? 15 : width < 768 ? 16 : 17,
+    fontWeight: '700',
+    color: '#0671ca',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 40, // Ensure consistent button area height
+    width: '100%',
   },
   addButton: {
     backgroundColor: '#0671ca',
-    paddingVertical: 5,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginTop: 5,
+    paddingVertical: width < 480 ? 8 : 10,
+    paddingHorizontal: width < 480 ? 16 : 20,
+    borderRadius: 20,
+    minWidth: width < 480 ? 60 : 70,
+    elevation: 2,
+    shadowColor: '#0671ca',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   addText: {
-    fontSize: 12,
+    fontSize: width < 480 ? 13 : 14,
     fontWeight: '600',
     color: '#FFFFFF',
+    textAlign: 'center',
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 5,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   quantityButton: {
     backgroundColor: '#0671ca',
-    width: 25,
-    height: 25,
-    borderRadius: 12.5,
+    width: width < 480 ? 26 : 28,
+    height: width < 480 ? 26 : 28,
+    borderRadius: width < 480 ? 13 : 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 3,
+    margin: 2,
   },
   quantityText: {
-    fontSize: 14,
+    fontSize: width < 480 ? 14 : 16,
     color: '#FFFFFF',
     fontWeight: '700',
   },
   quantity: {
-    fontSize: 12,
+    fontSize: width < 480 ? 14 : 16,
     fontWeight: '600',
     color: '#1F2937',
-    marginHorizontal: 6,
+    marginHorizontal: width < 480 ? 10 : 12,
+    minWidth: 20,
+    textAlign: 'center',
   },
   cartFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  cartInfo: {
+    flex: 1,
   },
   cartText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#1F2937',
+  },
+  cartSubText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   viewCartButton: {
     backgroundColor: '#0671ca',
-    paddingVertical: 6,
-    paddingHorizontal: 15,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    shadowColor: '#0671ca',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   viewCartText: {
     fontSize: 14,

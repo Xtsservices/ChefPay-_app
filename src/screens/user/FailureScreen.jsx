@@ -4,13 +4,13 @@ import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
-const SuccessScreen = () => {
+const FailureScreen = () => {
   const navigation = useNavigation();
   const scaleValue = useRef(new Animated.Value(0)).current;
   const fadeValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Checkmark animation
+    // X icon animation
     Animated.spring(scaleValue, {
       toValue: 1,
       friction: 4,
@@ -46,23 +46,23 @@ const SuccessScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Animated Checkmark */}
+        {/* Animated X Icon */}
         <Animated.View
           style={[
-            styles.checkmarkContainer,
+            styles.iconContainer,
             {
               transform: [{ scale: scaleValue }],
             },
           ]}
         >
-          <Text style={styles.checkmark}>✓</Text>
+          <Text style={styles.icon}>✗</Text>
         </Animated.View>
 
         <Text style={[styles.title, { fontSize: title }]}>
-          Payment Successful!
+          Payment Failed
         </Text>
         <Text style={[styles.message, { fontSize: message }]}>
-          Thank you for your order. Your payment has been processed successfully.
+          We're sorry, your payment could not be processed. Please try again.
         </Text>
         <Animated.Text
           style={[
@@ -97,28 +97,28 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  checkmarkContainer: {
+  iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#0671ca',
+    backgroundColor: '#EF4444',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#0671ca',
+    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
-  checkmark: {
+  icon: {
     fontSize: 40,
     color: '#FFFFFF',
     fontWeight: 'bold',
   },
   title: {
     fontWeight: '700',
-    color: '#0671ca',
+    color: '#EF4444',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -136,4 +136,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SuccessScreen;
+export default FailureScreen;
